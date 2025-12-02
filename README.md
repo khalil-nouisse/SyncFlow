@@ -12,6 +12,8 @@ It demonstrates a "Polyglot Persistence" approach, utilizing **Node.js** and **P
 
 ## 🏗️ Architecture
 
+![Architecture](images/architecture.png)
+
 The system is divided into two distinct parts:
 
 1.  **Command Side (Write Optimized):**
