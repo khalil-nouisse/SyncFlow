@@ -12,6 +12,9 @@ It demonstrates a "Polyglot Persistence" approach, utilizing **Node.js** and **P
 
 ## 🏗️ Architecture
 
+![Uploading Gemini_Generated_Image_2e7x202e7x202e7x.png…]()
+
+
 The system is divided into two distinct parts:
 
 1.  **Command Side (Write Optimized):**
