@@ -12,7 +12,15 @@ import (
 	// "go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-// GetOrder handles GET /orders/:id
+// GetOrder godoc
+// @Summary Get order by ID
+// @Description Retrieve a specific order by its ID from MongoDB
+// @Tags Orders
+// @Produce json
+// @Param id path string true "Order ID"
+// @Success 200 {object} models.Order
+// @Failure 404 {object} map[string]string
+// @Router /orders/{id} [get]
 func GetOrder(c *gin.Context) {
 	id := c.Param("id")
 
@@ -31,7 +39,14 @@ func GetOrder(c *gin.Context) {
 	c.JSON(http.StatusOK, order)
 }
 
-// GetAllOrders handles GET /orders
+// GetAllOrders godoc
+// @Summary Get all orders
+// @Description Retrieve all orders from MongoDB
+// @Tags Orders
+// @Produce json
+// @Success 200 {array} models.Order
+// @Failure 500 {object} map[string]string
+// @Router /orders [get]
 func GetAllOrders(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

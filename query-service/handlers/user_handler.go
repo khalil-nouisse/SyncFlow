@@ -11,15 +11,14 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-// GetProduct handles GET /product/:id
-// Note: Originally user/:email, assuming we want to fetch by ID or some field.
-// Let's stick to user request of "do the same thing in mongodb" which implies getting the data.
-// Since the producer sends `p_desc` and `qte`, we might not have a clean ID unless we use the mongo ID.
-// For now, let's just make it fetch all or fetch by some criteria.
-// Given the previous code fetched by "email" which was the ID, let's fetch by ID if possible, or just list all.
-// Actually, the previous code was `GetUserHistory`.
-// Let's make `GetAllProducts` for simplicity as `getAll` is in producer.
-
+// GetAllProducts godoc
+// @Summary Get all products
+// @Description Retrieve all products from MongoDB
+// @Tags Products
+// @Produce json
+// @Success 200 {array} models.Product
+// @Failure 500 {object} map[string]string
+// @Router /products [get]
 func GetAllProducts(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

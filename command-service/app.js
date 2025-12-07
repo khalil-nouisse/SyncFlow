@@ -4,10 +4,10 @@ const app = express()
 const fs = require('fs');
 const path = require('path');
 const api = require('./routes/index')
-const {connectRabbitMQ} = require('./services/rabbitMqService')
+const { connectRabbitMQ } = require('./services/rabbitMqService')
 
-app.get('/initiate',async (req,res)=>{
-    try {
+app.get('/initiate', async (req, res) => {
+  try {
     const sqlPath = path.join(__dirname, '..', 'docker', 'postgres', 'init.sql');
     const sql = fs.readFileSync(sqlPath, 'utf8');
     console.log('Running SQL script... FOR tables initialization');
@@ -32,10 +32,10 @@ app.use(express.json());
 //   }  
 
 // })
-connectRabbitMQ().then(()=>{
-    app.listen(5000,()=>{
-    console.log("hi")
-    })
-});
+app.use('/api', api);
 
-app.use('/api',api);
+connectRabbitMQ().then(() => {
+  app.listen(5000, () => {
+    console.log("hi")
+  })
+});
