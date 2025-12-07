@@ -1,3 +1,5 @@
+BEGIN;
+
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE TABLE client(
@@ -30,3 +32,5 @@ CREATE TABLE commande_prod(
     prix_unitaire DECIMAL(10,2) NOT NULL , 
     quantity INT NOT NULL
 );
+
+COMMIT;
