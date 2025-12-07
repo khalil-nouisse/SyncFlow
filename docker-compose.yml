@@ -74,7 +74,7 @@ services:
       - MONGO_URI=mongodb://mongo:27017
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
       - DB_NAME=ecommerce_read_db
-      - COLLECTION_NAME=users
+      - COLLECTION_NAME=products
     depends_on:
       rabbitmq:
         condition: service_healthy

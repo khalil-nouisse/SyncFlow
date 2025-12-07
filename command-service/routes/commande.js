@@ -1,9 +1,10 @@
-// const express = require('express')
-// const router = express.Router()
+const express = require('express')
+const router = express.Router()
+const commandeController = require('../controllers/commandeController')
 
+router.post('/', commandeController.create)
+router.put('/:id', commandeController.update)
+router.delete('/:id', commandeController.deleteOrder)
+router.get('/', commandeController.getAll)
 
-// router.post('/create')
-// router.post('/update')
-// router.get('/')
-
-// module.exports = router;
+module.exports = router;

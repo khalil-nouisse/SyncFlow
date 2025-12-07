@@ -45,7 +45,7 @@ const publishToQueue = async (queueName, data) => {
 
     try {
         // Ensure queue exists (idempotent)
-        await channel.assertQueue(queueName, { durable: false });
+        await channel.assertQueue(queueName, { durable: true });
 
         // Convert object to Buffer and send
         const messageBuffer = Buffer.from(JSON.stringify(data));

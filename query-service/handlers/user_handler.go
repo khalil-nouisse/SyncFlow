@@ -11,24 +11,31 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-// GetUserHistory handles GET /users/:email
-func GetUserHistory(c *gin.Context) {
-	email := c.Param("email")
+// GetProduct handles GET /product/:id
+// Note: Originally user/:email, assuming we want to fetch by ID or some field.
+// Let's stick to user request of "do the same thing in mongodb" which implies getting the data.
+// Since the producer sends `p_desc` and `qte`, we might not have a clean ID unless we use the mongo ID.
+// For now, let's just make it fetch all or fetch by some criteria.
+// Given the previous code fetched by "email" which was the ID, let's fetch by ID if possible, or just list all.
+// Actually, the previous code was `GetUserHistory`.
+// Let's make `GetAllProducts` for simplicity as `getAll` is in producer.
 
-	// 1. Define Context with Timeout
+func GetAllProducts(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// 2. Find the document
-	var user models.User
-	err := database.UserCollection.FindOne(ctx, bson.M{"_id": email}).Decode(&user)
-
+	cursor, err := database.ProductCollection.Find(ctx, bson.M{})
 	if err != nil {
-		// If generic error (includes 'not found')
-		c.JSON(http.StatusNotFound, gin.H{"error": "User or history not found"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch products"})
+		return
+	}
+	defer cursor.Close(ctx)
+
+	var products []models.Product
+	if err = cursor.All(ctx, &products); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse products"})
 		return
 	}
 
-	// 3. Return JSON
-	c.JSON(http.StatusOK, user)
+	c.JSON(http.StatusOK, products)
 }

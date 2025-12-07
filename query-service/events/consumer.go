@@ -1,7 +1,6 @@
 package events
 
 import (
-	"context"
 	"encoding/json"
 	"log"
 	"os"
@@ -17,22 +16,17 @@ import (
 
 // EventWrapper is the outer shell of every message
 type EventWrapper struct {
-	EventType string          `json:"event_type"` // e.g., "ORDER_CREATED", "ORDER_UPDATED"
-	Payload   json.RawMessage `json:"payload"`    // Delays parsing until we know the type
+	EventType string          `json:"event_type"`
+	Payload   json.RawMessage `json:"payload"`
 }
 
-// OrderEventPayload is the data inside the wrapper
-type OrderEventPayload struct {
-	UserEmail string       `json:"user_email"`
-	UserName  string       `json:"user_name"`
-	Order     models.Order `json:"order"`
+// ProductEventPayload matches the payload sent by producer
+type ProductEventPayload struct {
+	Description string  `json:"p_desc"`
+	Quantity    float64 `json:"qte"`
 }
 
 func StartConsumer() {
-	// ... (Connection logic remains the same as before) ...
-	// [Copy lines 30-70 from previous consumer.go here: Get Env, Connect, Channel, QueueDeclare]
-	// Here is the shortened version for the loop:
-
 	url := os.Getenv("RABBITMQ_URL")
 	if url == "" {
 		url = "amqp://guest:guest@localhost:5672/"
@@ -41,7 +35,7 @@ func StartConsumer() {
 	var conn *amqp.Connection
 	var err error
 	maxRetries := 15
-	
+
 	for i := 0; i < maxRetries; i++ {
 		log.Printf("Attempting to connect to RabbitMQ (Attempt %d/%d)...", i+1, maxRetries)
 		conn, err = amqp.Dial(url)
@@ -59,35 +53,54 @@ func StartConsumer() {
 	defer conn.Close()
 	ch, _ := conn.Channel()
 	defer ch.Close()
-	q, _ := ch.QueueDeclare("order_created_queue", true, false, false, false, nil)
+
+	// Queue name must match producer: 'product_events'
+	q, _ := ch.QueueDeclare("product_events", true, false, false, false, nil)
 	msgs, _ := ch.Consume(q.Name, "", true, false, false, false, nil)
 
 	forever := make(chan bool)
 
 	go func() {
 		for d := range msgs {
-			// 1. Unmarshal only the Wrapper to check the Type
 			var wrapper EventWrapper
 			if err := json.Unmarshal(d.Body, &wrapper); err != nil {
 				log.Printf("❌ Error parsing wrapper: %v", err)
 				continue
 			}
 
-			// 2. Parse the inner data
-			var payload OrderEventPayload
-			if err := json.Unmarshal(wrapper.Payload, &payload); err != nil {
-				log.Printf("❌ Error parsing payload: %v", err)
-				continue
-			}
-
-			// 3. Switch based on Event Type
 			switch wrapper.EventType {
+			case "PRODUCT_CREATED":
+				var payload ProductEventPayload
+				if err := json.Unmarshal(wrapper.Payload, &payload); err != nil {
+					log.Printf("❌ Error parsing product payload: %v", err)
+					continue
+				}
+				handleProductInsert(payload)
+
 			case "ORDER_CREATED":
-				handleInsert(payload)
+				var payload models.Order
+				if err := json.Unmarshal(wrapper.Payload, &payload); err != nil {
+					log.Printf("❌ Error parsing order creation payload: %v", err)
+					continue
+				}
+				handleOrderInsert(payload)
+
 			case "ORDER_UPDATED":
-				handleUpdate(payload)
+				var payload models.Order
+				if err := json.Unmarshal(wrapper.Payload, &payload); err != nil {
+					log.Printf("❌ Error parsing order update payload: %v", err)
+					continue
+				}
+				handleOrderUpdate(payload)
+
 			case "ORDER_DELETED":
-				handleDelete(payload)
+				var payload models.Order
+				if err := json.Unmarshal(wrapper.Payload, &payload); err != nil {
+					log.Printf("❌ Error parsing order delete payload: %v", err)
+					continue
+				}
+				handleOrderDelete(payload)
+
 			default:
 				log.Printf("⚠️ Unknown Event Type: %s", wrapper.EventType)
 			}
@@ -98,63 +111,59 @@ func StartConsumer() {
 	<-forever
 }
 
-// --- CRUD HANDLERS ---
-
-// 1. INSERT (Create)
-func handleInsert(p OrderEventPayload) {
-	filter := bson.M{"_id": p.UserEmail}
-	update := bson.M{
-		"$setOnInsert": bson.M{"name": p.UserName},
-		"$push":        bson.M{"orders": p.Order},
+// --- PRODUCT HANDLERS ---
+func handleProductInsert(p ProductEventPayload) {
+	product := models.Product{
+		Description: p.Description,
+		Quantity:    p.Quantity,
 	}
-	opts := options.Update().SetUpsert(true)
-	_, err := database.UserCollection.UpdateOne(context.TODO(), filter, update, opts)
+	_, err := database.ProductCollection.InsertOne(nil, product)
 	if err != nil {
-		log.Printf("❌ Insert Failed: %v", err)
+		log.Printf("❌ Product Insert Failed: %v", err)
 	} else {
-		log.Printf("✅ Inserted Order %d for %s", p.Order.OrderID, p.UserEmail)
+		log.Printf("✅ Inserted Product: %s", p.Description)
 	}
 }
 
-// 2. UPDATE (Modify an existing order status/total)
-func handleUpdate(p OrderEventPayload) {
-	// Filter: Find user by Email AND the specific order inside the array
-	filter := bson.M{
-		"_id":             p.UserEmail,
-		"orders.order_id": p.Order.OrderID,
-	}
+// --- ORDER HANDLERS ---
 
-	// Update: Use the positional operator '$' to update exactly that order
-	update := bson.M{
-		"$set": bson.M{
-			"orders.$.status":       p.Order.Status,      // Update Status
-			"orders.$.total_amount": p.Order.TotalAmount, // Update Amount
-		},
-	}
+func handleOrderInsert(order models.Order) {
+	// Force ID to be the same if we want to query by it later easily,
+	// or let Mongo generate one. Since we receive 'id_commande', let's set _id to it.
+	// However, models.Order already has `bson:"_id,omitempty"`.
+	// If id_commande is populated in the struct, Mongo driver might use it if we map it to _id.
+	// The struct definition I made earlier:
+	// ID string `bson:"_id,omitempty" json:"id_commande"`
+	// So JSON unmarshal puts `id_commande` into `ID`.
+	// BSON insertion will use `ID` as `_id`. Perfect.
 
-	_, err := database.UserCollection.UpdateOne(context.TODO(), filter, update)
+	_, err := database.OrderCollection.InsertOne(nil, order)
 	if err != nil {
-		log.Printf("❌ Update Failed: %v", err)
+		log.Printf("❌ Order Insert Failed: %v", err)
 	} else {
-		log.Printf("🔄 Updated Order %d for %s", p.Order.OrderID, p.UserEmail)
+		log.Printf("✅ Inserted Order: %s", order.ID)
 	}
 }
 
-// 3. DELETE (Remove an order)
-func handleDelete(p OrderEventPayload) {
-	filter := bson.M{"_id": p.UserEmail}
+func handleOrderUpdate(order models.Order) {
+	filter := bson.M{"_id": order.ID}
+	update := bson.M{"$set": order}
+	opts := options.Update().SetUpsert(true) // Upsert to be safe? Or just update.
 
-	// Update: Use $pull to remove the item from the array where order_id matches
-	update := bson.M{
-		"$pull": bson.M{
-			"orders": bson.M{"order_id": p.Order.OrderID},
-		},
-	}
-
-	_, err := database.UserCollection.UpdateOne(context.TODO(), filter, update)
+	_, err := database.OrderCollection.UpdateOne(nil, filter, update, opts)
 	if err != nil {
-		log.Printf("❌ Delete Failed: %v", err)
+		log.Printf("❌ Order Update Failed: %v", err)
 	} else {
-		log.Printf("🗑️ Deleted Order %d from %s", p.Order.OrderID, p.UserEmail)
+		log.Printf("🔄 Updated Order: %s", order.ID)
+	}
+}
+
+func handleOrderDelete(order models.Order) {
+	filter := bson.M{"_id": order.ID}
+	_, err := database.OrderCollection.DeleteOne(nil, filter)
+	if err != nil {
+		log.Printf("❌ Order Delete Failed: %v", err)
+	} else {
+		log.Printf("🗑️ Deleted Order: %s", order.ID)
 	}
 }

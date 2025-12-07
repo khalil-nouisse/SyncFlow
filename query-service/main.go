@@ -16,7 +16,9 @@ func main() {
 
 	// Start HTTP Server (Reads)
 	r := gin.Default()
-	r.GET("/users/:email", handlers.GetUserHistory)
+	r.GET("/products", handlers.GetAllProducts)
+	r.GET("/orders", handlers.GetAllOrders)
+	r.GET("/orders/:id", handlers.GetOrder)
 
 	r.Run(":8081") // Listen on port 8081
 }

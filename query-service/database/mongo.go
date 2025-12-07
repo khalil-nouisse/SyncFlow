@@ -12,8 +12,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// Global variable to access the collection from other files
-var UserCollection *mongo.Collection
+var ProductCollection *mongo.Collection
+var OrderCollection *mongo.Collection
 
 // ConnectDB initializes the database connection
 func ConnectDB() {
@@ -51,5 +51,6 @@ func ConnectDB() {
 	// 6. Assign the collection
 	dbName := os.Getenv("DB_NAME")
 	colName := os.Getenv("COLLECTION_NAME")
-	UserCollection = client.Database(dbName).Collection(colName)
+	ProductCollection = client.Database(dbName).Collection(colName)
+	OrderCollection = client.Database(dbName).Collection("orders")
 }
