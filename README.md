@@ -8,7 +8,7 @@
 
 This project is a proof-of-concept implementation of the **CQRS (Command Query Responsibility Segregation)** pattern combined with an **Event-Driven Architecture**. 
 
-It demonstrates a "Polyglot Persistence" approach, utilizing **Node.js** and **PostgreSQL** for high-integrity write operations, and **Python** with **MongoDB** for high-performance read operations. The two systems are decoupled via **RabbitMQ**, ensuring asynchronous consistency and scalability.
+It demonstrates a "Polyglot Persistence" approach, utilizing **Node.js** and **PostgreSQL** for high-integrity write operations, and **Go** with **MongoDB** for high-performance read operations. The two systems are decoupled via **RabbitMQ**, ensuring asynchronous consistency and scalability.
 
 ## 🏗️ Architecture
 
@@ -25,15 +25,15 @@ The system is divided into two distinct parts:
     * **Role:** Acts as an asynchronous buffer, decoupling the write service from the read service to ensure system resilience.
 
 3.  **Query Side (Read Optimized):**
-    * **Stack:** Python + MongoDB.
-    * **Role:** Consumes events from the broker. The Python worker transforms relational data into a document-oriented structure and inserts it into MongoDB for fast, denormalized querying.
+    * **Stack:** Go + MongoDB.
+    * **Role:** Consumes events from the broker. The Go worker transforms relational data into a document-oriented structure and inserts it into MongoDB for fast, denormalized querying.
 
 ## 🛠️ Tech Stack
 
 * **Infrastructure:** Docker & Docker Compose
 * **Command Service:** Node.js, PostgreSQL (SQL)
 * **Message Broker:** RabbitMQ (AMQP)
-* **Query Worker:** Python, MongoDB (NoSQL)
+* **Query Worker:** Go, MongoDB (NoSQL)
 * **Caching (Optional):** Redis
 
 ## 🚀 Getting Started
@@ -64,7 +64,7 @@ This project is fully containerized. You can spin up the entire infrastructure w
 ## 💡 Key Concepts Demonstrated
 * **Microservices Communication:** Asynchronous messaging vs. synchronous HTTP.
 * **Data Consistency:** Handling eventual consistency between SQL and NoSQL databases.
-* **Polyglot Programming:** Interfacing between JavaScript and Python ecosystems.
+* **Polyglot Programming:** Interfacing between JavaScript and Go ecosystems.
 * **Containerization:** Orchestrating multi-service environments.
 
 ## 👤 Author
