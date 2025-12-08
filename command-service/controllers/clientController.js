@@ -1,5 +1,5 @@
 const db = require('../db')
-const { publishToQueue } = require('../services/mqService');
+const { publishToQueue } = require('../services/rabbitMqService');
 const getAll = async (req,res)=>{
     try{
     const result = await db.query('SELECT * FROM product')
@@ -11,15 +11,38 @@ const getAll = async (req,res)=>{
 
 const create =  async (req,res)=>{
     try{
-        const {p_desc,qte} = req.body;
-        const productQte = parseFloat(qte);
-        console.log(productQte)
-       const result = db.query('INSERT INTO PRODUCT (p_description,stock_quantity) values($1,$2)',[p_desc,productQte])
-       console.log(result.rows)
+        const {first_name,last_name,address} = req.body;
+        const result = await db.query('INSERT INTO CLIENT (firstname,lastname,address) values($1,$2,$3) RETURNING *',[first_name,last_name,address])
+        const newClient = result.rows[0];
+
+        const event = {
+            event_type: "CLIENT_CREATED",
+            payload: newClient
+        };
+        await publishToQueue('product_events', event);
+        res.status(201).json({ message: "Client created", client: newClient });
     }
     catch(err){
-        console.error(err)
+        console.error(err);
+        res.status(500).json({ error: "Internal Server Error" });
     }
 
 }
-module.exports = {getAll,create}
+
+const dlt = async (req,res)=>{
+    try{
+        id_client = req.params.id
+        const result = await db.query('DELETE FROM CLIENT where id_client = $1 RETURNING *',[id_client])
+        const toDeleteClient = result.rows[0]
+
+        const event = {
+            event_type: "CLIENT_DELETED",
+            payload: toDeleteClient
+        };
+        await publishToQueue('product_events', event);
+        res.status(201).json({ message: "Client deleted", client: toDeleteClient });
+    }catch(err){
+        console.error(err)
+    }
+}
+module.exports = {getAll,create,dlt}

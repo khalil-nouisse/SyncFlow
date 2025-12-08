@@ -26,10 +26,10 @@ const { publishToQueue } = require('../services/rabbitMqService');
  */
 const create = async (req, res) => {
     try {
-        const { id_client } = req.body;
+        const { id_client,products } = req.body;
         // Basic validation
-        if (!id_client) {
-            return res.status(400).json({ error: "id_client is required" });
+        if (!id_client || !products) {
+            return res.status(400).json({ error: "id_client and products are both required" });
         }
 
         // Insert into Postgres
@@ -39,11 +39,23 @@ const create = async (req, res) => {
             [id_client]
         );
         const newOrder = result.rows[0];
+        products.forEach(async (product)=>{
+            await db.query(
+                'INSERT INTO commande_prod (id_commande,id_produit,prix_unitaire,quantity) VALUES($1,$2,$3,$4)',
+                [newOrder.id_commande,product.id_produit,product.prix_unitaire,product.quantity]
+            );
+        })
 
+
+        const payload = {
+            id_client,
+            products,
+            newOrder
+        }
         // Publish Event
         const event = {
             event_type: "ORDER_CREATED",
-            payload: newOrder
+            payload: payload
         };
         await publishToQueue('product_events', event);
 
