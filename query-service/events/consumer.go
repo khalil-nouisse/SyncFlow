@@ -27,6 +27,7 @@ type ProductEventPayload struct {
 }
 
 func StartConsumer() {
+
 	url := os.Getenv("RABBITMQ_URL")
 	if url == "" {
 		url = "amqp://guest:guest@localhost:5672/"
@@ -38,12 +39,15 @@ func StartConsumer() {
 
 	for i := 0; i < maxRetries; i++ {
 		log.Printf("Attempting to connect to RabbitMQ (Attempt %d/%d)...", i+1, maxRetries)
+
+		//Connect to RabbitMQ with retry logic
 		conn, err = amqp.Dial(url)
+
 		if err == nil {
-			log.Println("✅ Connected to RabbitMQ successfully")
+			log.Println("Connected to RabbitMQ successfully")
 			break
 		}
-		log.Printf("❌ Failed to connect to RabbitMQ: %v. Retrying in 5 seconds...", err)
+		log.Printf("Failed to connect to RabbitMQ: %v. Retrying in 5 seconds...", err)
 		time.Sleep(5 * time.Second)
 	}
 
@@ -51,11 +55,14 @@ func StartConsumer() {
 		log.Fatalf("Could not connect to RabbitMQ after %d attempts: %v", maxRetries, err)
 	}
 	defer conn.Close()
+
+	//open channel
 	ch, _ := conn.Channel()
 	defer ch.Close()
 
 	// Queue name must match producer: 'product_events'
 	q, _ := ch.QueueDeclare("product_events", true, false, false, false, nil)
+
 	msgs, _ := ch.Consume(q.Name, "", true, false, false, false, nil)
 
 	forever := make(chan bool)
@@ -64,7 +71,7 @@ func StartConsumer() {
 		for d := range msgs {
 			var wrapper EventWrapper
 			if err := json.Unmarshal(d.Body, &wrapper); err != nil {
-				log.Printf("❌ Error parsing wrapper: %v", err)
+				log.Printf("Error parsing wrapper: %v", err)
 				continue
 			}
 
@@ -72,7 +79,7 @@ func StartConsumer() {
 			case "PRODUCT_CREATED":
 				var payload ProductEventPayload
 				if err := json.Unmarshal(wrapper.Payload, &payload); err != nil {
-					log.Printf("❌ Error parsing product payload: %v", err)
+					log.Printf("Error parsing product payload: %v", err)
 					continue
 				}
 				handleProductInsert(payload)
@@ -80,7 +87,7 @@ func StartConsumer() {
 			case "ORDER_CREATED":
 				var payload models.Order
 				if err := json.Unmarshal(wrapper.Payload, &payload); err != nil {
-					log.Printf("❌ Error parsing order creation payload: %v", err)
+					log.Printf("Error parsing order creation payload: %v", err)
 					continue
 				}
 				handleOrderInsert(payload)
@@ -88,7 +95,7 @@ func StartConsumer() {
 			case "ORDER_UPDATED":
 				var payload models.Order
 				if err := json.Unmarshal(wrapper.Payload, &payload); err != nil {
-					log.Printf("❌ Error parsing order update payload: %v", err)
+					log.Printf("Error parsing order update payload: %v", err)
 					continue
 				}
 				handleOrderUpdate(payload)
@@ -96,13 +103,13 @@ func StartConsumer() {
 			case "ORDER_DELETED":
 				var payload models.Order
 				if err := json.Unmarshal(wrapper.Payload, &payload); err != nil {
-					log.Printf("❌ Error parsing order delete payload: %v", err)
+					log.Printf("Error parsing order delete payload: %v", err)
 					continue
 				}
 				handleOrderDelete(payload)
 
 			default:
-				log.Printf("⚠️ Unknown Event Type: %s", wrapper.EventType)
+				log.Printf("Unknown Event Type: %s", wrapper.EventType)
 			}
 		}
 	}()
@@ -111,7 +118,7 @@ func StartConsumer() {
 	<-forever
 }
 
-// --- PRODUCT HANDLERS ---
+// PRODUCT HANDLERS
 func handleProductInsert(p ProductEventPayload) {
 	product := models.Product{
 		Description: p.Description,
@@ -119,29 +126,21 @@ func handleProductInsert(p ProductEventPayload) {
 	}
 	_, err := database.ProductCollection.InsertOne(nil, product)
 	if err != nil {
-		log.Printf("❌ Product Insert Failed: %v", err)
+		log.Printf("Product Insert Failed: %v", err)
 	} else {
-		log.Printf("✅ Inserted Product: %s", p.Description)
+		log.Printf("Inserted Product: %s", p.Description)
 	}
 }
 
-// --- ORDER HANDLERS ---
+//ORDER HANDLERS
 
 func handleOrderInsert(order models.Order) {
-	// Force ID to be the same if we want to query by it later easily,
-	// or let Mongo generate one. Since we receive 'id_commande', let's set _id to it.
-	// However, models.Order already has `bson:"_id,omitempty"`.
-	// If id_commande is populated in the struct, Mongo driver might use it if we map it to _id.
-	// The struct definition I made earlier:
-	// ID string `bson:"_id,omitempty" json:"id_commande"`
-	// So JSON unmarshal puts `id_commande` into `ID`.
-	// BSON insertion will use `ID` as `_id`. Perfect.
 
 	_, err := database.OrderCollection.InsertOne(nil, order)
 	if err != nil {
-		log.Printf("❌ Order Insert Failed: %v", err)
+		log.Printf("Order Insert Failed: %v", err)
 	} else {
-		log.Printf("✅ Inserted Order: %s", order.ID)
+		log.Printf("Inserted Order: %s", order.ID)
 	}
 }
 
